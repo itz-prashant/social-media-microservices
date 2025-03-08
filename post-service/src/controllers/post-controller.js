@@ -3,6 +3,10 @@ const logger = require("../utils/logger");
 const { validateCreatePost } = require("../utils/validation");
 
 async function invaliadtePostCache(req, input) {
+  
+  const cachedkey = `post:${input}`
+  await req.redisClient.del(cachedkey)
+
   const keys = await req.redisClient.keys("posts:*")
   if(keys.length > 0){
     await req.redisClient.del(keys)
@@ -88,7 +92,7 @@ const getPost = async (req, res) => {
   logger.info("Get post endpoint hit...")
   try {
     const postId = req.params.id;
-    const cacheKey = `posts:${postId}`
+    const cacheKey = `post:${postId}`
     const cachedPost = await req.redisClient.get(cacheKey)
 
     if(cachedPost){
@@ -100,7 +104,7 @@ const getPost = async (req, res) => {
     if(!singlePostDetailById){
       return res.status(404).json({
         success: false,
-        message: false
+        message: "Post not found"
       })
     }
 
@@ -117,7 +121,23 @@ const getPost = async (req, res) => {
 };
 
 const deletePost = async (req, res) => {
+  logger.info("Delete post endpoint hit...")
   try {
+    const post = await Post.findOneAndDelete({
+     _id: req.params.id,
+     user: req.user.userId 
+    })
+    if(!post){
+      return res.status(404).json({
+        success: false,
+        message: "Post not found"
+      })
+    }
+    await invaliadtePostCache(req, req.params.id)
+    res.json({
+      success: true,
+      message: 'Post deleted successfully'
+    })
   } catch (error) {
     logger.error("Error deleting post", error);
     res.status(500).json({
@@ -127,4 +147,4 @@ const deletePost = async (req, res) => {
   }
 };
 
-module.exports = { createPost, getAllPost , getPost};
+module.exports = { createPost, getAllPost , getPost, deletePost};
