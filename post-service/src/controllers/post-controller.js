@@ -2,6 +2,13 @@ const Post = require("../models/Post");
 const logger = require("../utils/logger");
 const { validateCreatePost } = require("../utils/validation");
 
+async function invaliadtePostCache(req, input) {
+  const keys = await req.redisClient.keys("posts:*")
+  if(keys.length > 0){
+    await req.redisClient.del(keys)
+  }
+}
+
 const createPost = async (req, res) => {
   logger.info("Created post endpoint hit...");
   try {
@@ -23,6 +30,7 @@ const createPost = async (req, res) => {
     });
 
     await newlyCreatedPost.save();
+    await invaliadtePostCache(req, newlyCreatedPost._id.toString())
     logger.info("Post created successfully", newlyCreatedPost);
     res.status(201).json({
       success: true,
@@ -38,7 +46,35 @@ const createPost = async (req, res) => {
 };
 
 const getAllPost = async (req, res) => {
+  logger.info("Get all post endpoint hit...")
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    startIndex = (page - 1 ) * limit;
+
+    const cacheKey = `posts:${page}:${limit}`
+    const cachedPosts = await req.redisClient.get(cacheKey)
+
+    if(cachedPosts){
+      return res.json(JSON.parse(cachedPosts))
+    }
+
+    const posts = await Post.find({}).sort({createdAt: -1}).skip(startIndex).limit(limit)
+
+    const totalNoOfPosts = await Post.countDocuments()
+
+    const result = {
+      posts,
+      currentPage: page,
+      totalPages: Math.ceil(totalNoOfPosts/limit),
+      totalPosts: totalNoOfPosts
+    }
+
+    // save post in redis cache
+    await req.redisClient.setex(cacheKey, 300, JSON.stringify(result))
+
+    res.json(result)
+
   } catch (error) {
     logger.error("Error fetching post", error);
     res.status(500).json({
@@ -49,7 +85,28 @@ const getAllPost = async (req, res) => {
 };
 
 const getPost = async (req, res) => {
+  logger.info("Get post endpoint hit...")
   try {
+    const postId = req.params.id;
+    const cacheKey = `posts:${postId}`
+    const cachedPost = await req.redisClient.get(cacheKey)
+
+    if(cachedPost){
+      logger.info('cache available')
+      return res.json(JSON.parse(cachedPost))
+    }
+
+    const singlePostDetailById = await Post.findById(postId)
+    if(!singlePostDetailById){
+      return res.status(404).json({
+        success: false,
+        message: false
+      })
+    }
+
+    await req.redisClient.setex(cacheKey, 3600, JSON.stringify(singlePostDetailById))
+    res.json(singlePostDetailById)
+
   } catch (error) {
     logger.error("Error fetching post", error);
     res.status(500).json({
@@ -70,4 +127,4 @@ const deletePost = async (req, res) => {
   }
 };
 
-module.exports = { createPost };
+module.exports = { createPost, getAllPost , getPost};
