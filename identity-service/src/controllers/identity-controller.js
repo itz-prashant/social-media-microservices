@@ -34,13 +34,9 @@ const registerUser = async (req, res) => {
 
     logger.warn("User saved successfully", user._id);
 
-    const {accessToken, refreshtoken} = await generateTokens(user)
-
     res.status(201).json({
         success: true,
         message: 'User registration successfully...',
-        accessToken,
-        refreshtoken
     })
 
   } catch (error) {
@@ -161,7 +157,7 @@ const logout = async(req, res)=>{
         message: "Refresh token missing "
       })
     }
-    await RefreshToken.deleteOne({tokrn: refreshToken})
+    await RefreshToken.deleteOne({token: refreshToken})
     logger.info("Refresh token deleted for logout")
     res.json({
       success: true,
