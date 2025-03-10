@@ -13,7 +13,7 @@ const searchPostController = async(req, res)=>{
                 score: {$meta: 'textScore'}
             }
         ).sort({score: {$meta: 'textScore'}})
-        .sort(10);
+        .limit(10);
         res.json(results)
     } catch (error) {
         logger.error("Error while searching", error)
