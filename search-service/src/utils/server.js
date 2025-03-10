@@ -6,8 +6,6 @@ const cors = require('cors')
 const helmet = require('helmet')
 const errorHandler = require('./middlewares/errorHandler')
 const logger = require('./utils/logger')
-const {connectionToRabbitMQ, consumeEvent} = require('./utils/rabbitmq')
-const searchRoutes = require('./routes/search-route')
 
 const app = express()
 const PORT = process.env.PORT || 3004
@@ -26,5 +24,3 @@ app.use((req, res, next) => {
   logger.info(`Request body, ${req.body}`);
   next();
 });
-
-app.use('/api/search', searchRoutes)
