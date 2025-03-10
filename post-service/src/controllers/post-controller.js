@@ -1,5 +1,6 @@
 const Post = require("../models/Post");
 const logger = require("../utils/logger");
+const { publishEVent } = require("../utils/rabbitmq");
 const { validateCreatePost } = require("../utils/validation");
 
 async function invaliadtePostCache(req, input) {
@@ -133,6 +134,12 @@ const deletePost = async (req, res) => {
         message: "Post not found"
       })
     }
+    // Publish post delete method
+    await publishEVent('post.deleted', {
+      postId: post._id.toString(),
+      userId: req.user.userId,
+      mediaIds: post.mediaIds
+    })
     await invaliadtePostCache(req, req.params.id)
     res.json({
       success: true,
