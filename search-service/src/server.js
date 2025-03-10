@@ -8,6 +8,7 @@ const errorHandler = require('./middlewares/errorHandler')
 const logger = require('./utils/logger')
 const {connectionToRabbitMQ, consumeEvent} = require('./utils/rabbitmq')
 const searchRoutes = require('./routes/search-route')
+const { handlePostCreated } = require('./eventHandlers/create-search-event-handler')
 
 const app = express()
 const PORT = process.env.PORT || 3004
@@ -28,3 +29,21 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/search', searchRoutes)
+
+app.use(errorHandler)
+
+async function startServer() {
+    try {
+        await connectionToRabbitMQ()
+        // consume the event or subscribe the event
+        await consumeEvent('post-created', handlePostCreated)
+        app.listen(PORT, () => {
+            logger.info(`Search service running on PORT: ${PORT}`);
+        });
+    } catch (error) {
+        logger.error('Failed to start log service')
+        process.exit(1)
+    }
+}
+
+startServer()
